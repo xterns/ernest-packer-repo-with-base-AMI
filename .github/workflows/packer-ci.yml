@@ -65,9 +65,11 @@ jobs:
 
       - name: Initialize Packer
         run: |
-          echo "Initializing Packer..."
+          echo "Running packer init to install required plugins..."
           packer init ami-template.pkr.hcl
-          echo "Packer Initialization Completed."
+          echo "Checking installed plugins..."
+          ls -R ~/.packer.d/plugins
+          echo "Packer initialization completed."
 
       - name: Debug OIDC Token Sub Value
         run: |
