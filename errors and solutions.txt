@@ -286,3 +286,81 @@ Edit
 This downloads the required Packer plugins before validation.
 
 
+-------------------------------------------
+
+0s
+Run packer validate ami-template.pkr.hcl
+Error: Missing plugins
+
+The following plugins are required, but not installed:
+
+* github.com/hashicorp/amazon >= 1.0.0
+
+Did you run packer init for this project ?
+
+solution:
+
+name: Build and Deploy Packer AMI
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Install Packer
+        uses: hashicorp/setup-packer@v2
+        with:
+          version: latest
+
+      - name: Initialize Packer
+        run: |
+          echo "Initializing Packer..."
+          packer init ami-template.pkr.hcl
+          echo "Packer Initialization Completed."
+
+      - name: Debug OIDC Token Sub Value
+        run: |
+          echo "Fetching OIDC Token..."
+          TOKEN=$(curl -s -H "Authorization: Bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
+                  "$ACTIONS_ID_TOKEN_REQUEST_URL" | jq -r '.value')
+          echo "Decoded OIDC Token Sub Value:"
+          echo $TOKEN | jq -R 'split(".") | .[1] | @base64d | fromjson' | jq '.sub'
+        env:
+          ACTIONS_ID_TOKEN_REQUEST_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ACTIONS_ID_TOKEN_REQUEST_URL: "https://token.actions.githubusercontent.com"
+
+      - name: Configure AWS Credentials via OIDC
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: us-east-1
+
+      - name: Validate Packer Template
+        run: |
+          echo "Validating Packer Template..."
+          packer validate ami-template.pkr.hcl
+          echo "Validation Completed."
+
+      - name: Build AMI
+        run: |
+          echo "Building AMI..."
+          packer build ami-template.pkr.hcl
+          echo "Build Completed."
+
+
+=====================================
+
