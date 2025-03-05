@@ -1,0 +1,160 @@
+name: Build and Deploy Packer AMI
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Install Packer
+        uses: hashicorp/setup-packer@v2
+        with:
+          version: latest
+
+      - name: Configure AWS Credentials via OIDC
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: us-east-1
+
+      - name: Validate Packer Template
+        run: packer validate ami-template.pkr.hcl
+
+      - name: Build AMI
+        run: packer build ami-template.pkr.hcl
+===================================================
+name: Build and Deploy Packer AMI
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Install Packer
+        uses: hashicorp/setup-packer@v2
+        with:
+          version: latest
+
+      - name: Request GitHub OIDC Token
+        id: id_token
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const response = await github.rest.actions.createOidcToken({});
+            console.log(response.data.value);
+            return response.data.value;
+
+      - name: Debug OIDC Token Sub Value
+        run: |
+          echo "Fetching OIDC Token..."
+          TOKEN="${{ steps.id_token.outputs.token }}"
+          echo "Decoded OIDC Token Sub Value:"
+          echo $TOKEN | jq -R 'split(".") | .[1] | @base64d | fromjson' | jq '.sub'
+
+      - name: Configure AWS Credentials via OIDC
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: us-east-1
+
+      - name: Validate Packer Template
+        run: packer validate ami-template.pkr.hcl
+
+      - name: Build AMI
+        run: packer build ami-template.pkr.hcl
+
+1 error
+build
+Unhandled error: TypeError: github.rest.actions.createOidcToken is not a function
+
+==============================================================
+
+Solution:
+
+name: Build and Deploy Packer AMI
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Install Packer
+        uses: hashicorp/setup-packer@v2
+        with:
+          version: latest
+
+      - name: Debug OIDC Token Sub Value
+        run: |
+          echo "Fetching OIDC Token..."
+          TOKEN=$(curl -s -H "Authorization: Bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
+                  "$ACTIONS_ID_TOKEN_REQUEST_URL" | jq -r '.value')
+          echo "Decoded OIDC Token Sub Value:"
+          echo $TOKEN | jq -R 'split(".") | .[1] | @base64d | fromjson' | jq '.sub'
+        env:
+          ACTIONS_ID_TOKEN_REQUEST_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ACTIONS_ID_TOKEN_REQUEST_URL: "https://token.actions.githubusercontent.com"
+
+      - name: Configure AWS Credentials via OIDC
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: us-east-1
+
+      - name: Validate Packer Template
+        run: packer validate ami-template.pkr.hcl
+
+      - name: Build AMI
+        run: packer build ami-template.pkr.hcl
+
+__________________________
+
+🔍 What Changed?
+1️⃣ Removed github.rest.actions.createOidcToken() – it's not a valid API method.
+2️⃣ Used curl to fetch the OIDC token manually – this is the correct way to retrieve it.
+3️⃣ Decodes the OIDC token and extracts the sub value using jq.
+
+
+Removed github.rest.actions.createOidcToken() – it's not a valid API method.
+Used curl to fetch the OIDC token manually – this is the correct way to retrieve it.
+Decodes the OIDC token and extracts the sub value using jq.
