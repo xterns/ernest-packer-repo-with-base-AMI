@@ -63,6 +63,9 @@ jobs:
         with:
           version: latest
 
+      - name: Initialize Packer
+        run: packer init ami-template.pkr.hcl  # ✅ This ensures all required plugins are installed
+
       - name: Debug OIDC Token Sub Value
         run: |
           echo "Fetching OIDC Token..."
@@ -81,9 +84,10 @@ jobs:
           aws-region: us-east-1
 
       - name: Validate Packer Template
-        run: packer validate ami-template.pkr.hcl
+        run: packer validate ami-template.pkr.hcl  # ✅ Will now work since plugins are installed
 
       - name: Build AMI
         run: packer build ami-template.pkr.hcl
+
 
 
