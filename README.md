@@ -200,42 +200,48 @@ The error message indicates that `ami_name` is missing, and Packer requires it t
 Add `ami_name` inside your `amazon-ebs` `source` block:
 
 ```
+# Defines the Packer configuration block and specifies required plugins
 packer {
   required_plugins {
     amazon = {
-      source  = "github.com/hashicorp/amazon"
-      version = ">= 1.0.0"
+      source  = "github.com/hashicorp/amazon" # Specifies the source of the Amazon plugin
+      version = ">= 1.0.0" # Ensures compatibility with Packer versions 1.0.0 and above
     }
   }
 }
 
+# Defines the Amazon Elastic Block Store (EBS)-backed AMI source
 source "amazon-ebs" "shali" {
-  region         = "us-east-1"
-  source_ami     = "ami-0e1bed4f06a3b463d" # Replace with a valid Ubuntu 22.04 AMI ID
-  instance_type  = "t2.micro"
-  ssh_username   = "ubuntu"
-  communicator   = "ssh"
+  region         = "us-east-1" # AWS region where the AMI will be created
+  source_ami     = "ami-0e1bed4f06a3b463d" # Base AMI (Ubuntu 22.04), replace with a valid AMI ID
+  instance_type  = "t2.micro" # Instance type used for building the image
+  ssh_username   = "ubuntu" # SSH username for the base AMI
+  communicator   = "ssh" # Specifies SSH as the communication method
 
-  ami_name       = "packer-ubuntu-ami-{{timestamp}}"
-  ami_description = "Hardened AMI following CSI standards"
+  ami_name       = "packer-ubuntu-ami-{{timestamp}}" # Sets the AMI name with a timestamp
+  ami_description = "Hardened AMI following CSI standards" # Provides a description for the AMI
 
+  # Tags for identifying and organizing the AMI
   tags = {
-    Name        = "shali-packer-image"
-    Project     = "SHALI"
-    Environment = "Dev"
+    Name        = "shali-packer-image" # Name of the AMI
+    Project     = "SHALI" # Project associated with the AMI
+    Environment = "Dev" # Deployment environment (Development)
   }
 }
 
+# Build block to define provisioning steps
 build {
-  sources = ["source.amazon-ebs.shali"]
+  sources = ["source.amazon-ebs.shali"] # Uses the Amazon EBS source defined above
 
+  # Executes a shell script for applying critical security standards
   provisioner "shell" {
-  script = "scripts/001-critical-standards.sh"
-}
+    script = "scripts/001-critical-standards.sh" # Path to the shell script
+  }
 
-provisioner "shell" {
-  script = "scripts/002-non-critical-standards.sh"
-}
+  # Executes a second shell script for non-critical configurations
+  provisioner "shell" {
+    script = "scripts/002-non-critical-standards.sh" # Path to the second script
+  }
 }
 ```
 
@@ -361,6 +367,25 @@ jobs:
         with:
           version: latest
 
+      - name: Initialize Packer
+        run: |
+          echo "Running packer init to install required plugins..."
+          packer init ami-template.pkr.hcl
+          echo "Checking installed plugins..."
+          ls -R ~/.config/packer/plugins
+          echo "Packer initialization completed."
+
+      - name: Debug OIDC Token Sub Value
+        run: |
+          echo "Fetching OIDC Token..."
+          TOKEN=$(curl -s -H "Authorization: Bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
+                  "$ACTIONS_ID_TOKEN_REQUEST_URL" | jq -r '.value')
+          echo "Decoded OIDC Token Sub Value:"
+          echo $TOKEN | jq -R 'split(".") | .[1] | @base64d | fromjson' | jq '.sub'
+        env:
+          ACTIONS_ID_TOKEN_REQUEST_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ACTIONS_ID_TOKEN_REQUEST_URL: "https://token.actions.githubusercontent.com"
+
       - name: Configure AWS Credentials via OIDC
         uses: aws-actions/configure-aws-credentials@v2
         with:
@@ -368,10 +393,16 @@ jobs:
           aws-region: us-east-1
 
       - name: Validate Packer Template
-        run: packer validate ami-template.pkr.hcl
+        run: |
+          echo "Validating Packer Template..."
+          packer validate ami-template.pkr.hcl
+          echo "Validation Completed."
 
       - name: Build AMI
-        run: packer build ami-template.pkr.hcl
+        run: |
+          echo "Building AMI..."
+          packer build ami-template.pkr.hcl
+          echo "Build Completed."
 ```
 3. Commit and push
    
@@ -417,3 +448,18 @@ file scripts/002-non-critical-standards.sh
 
 ![](./img/30.check-format.png)
 
+This shows that I have successfully converted my scripts to LF format using dos2unix.
+
+Now, when you run file `scripts/001-critical-standards.sh` and file `scripts/002-non-critical-standards.sh`, the output confirms that both are recognized as Bourne-Again shell scripts (ASCII text executable), which means they should now execute properly on Linux-based AMIs in AWS.
+
+4. Re-Commit and push
+   
+```
+git add .
+git commit -m "Initial Packer setup"
+git push origin main
+```
+
+![](./img/33.ci-complete.png)
+
+![](./img/34.ami-created.png)
