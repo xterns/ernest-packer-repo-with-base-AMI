@@ -341,8 +341,10 @@ Automate Packer builds using GitHub Actions.
 2. Define the GitHub Actions workflow `(packer-ci.yml)`:
 
 ```
+# Workflow name: Build and Deploy Packer AMI
 name: Build and Deploy Packer AMI
 
+# Triggers the workflow on push and pull request events to the 'main' branch
 on:
   push:
     branches:
@@ -351,57 +353,59 @@ on:
     branches:
       - main
 
+# Defines required permissions for accessing OIDC and repository contents
 permissions:
-  id-token: write
-  contents: read
+  id-token: write # Allows GitHub Actions to authenticate via OIDC for AWS
+  contents: read  # Grants read access to repository contents
 
+# Defines the job to build the AMI
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-latest # Runs the job on the latest Ubuntu environment
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v4 # Checks out the repository code
 
       - name: Install Packer
-        uses: hashicorp/setup-packer@v2
+        uses: hashicorp/setup-packer@v2 # Installs Packer CLI
         with:
-          version: latest
+          version: latest # Installs the latest Packer version
 
       - name: Initialize Packer
         run: |
           echo "Running packer init to install required plugins..."
-          packer init ami-template.pkr.hcl
+          packer init ami-template.pkr.hcl # Initializes Packer and installs required plugins
           echo "Checking installed plugins..."
-          ls -R ~/.config/packer/plugins
+          ls -R ~/.config/packer/plugins # Lists installed Packer plugins for debugging
           echo "Packer initialization completed."
 
       - name: Debug OIDC Token Sub Value
         run: |
           echo "Fetching OIDC Token..."
           TOKEN=$(curl -s -H "Authorization: Bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
-                  "$ACTIONS_ID_TOKEN_REQUEST_URL" | jq -r '.value')
+                  "$ACTIONS_ID_TOKEN_REQUEST_URL" | jq -r '.value') # Fetches OIDC token from GitHub Actions
           echo "Decoded OIDC Token Sub Value:"
-          echo $TOKEN | jq -R 'split(".") | .[1] | @base64d | fromjson' | jq '.sub'
+          echo $TOKEN | jq -R 'split(".") | .[1] | @base64d | fromjson' | jq '.sub' # Decodes and extracts the 'sub' field
         env:
-          ACTIONS_ID_TOKEN_REQUEST_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          ACTIONS_ID_TOKEN_REQUEST_URL: "https://token.actions.githubusercontent.com"
+          ACTIONS_ID_TOKEN_REQUEST_TOKEN: ${{ secrets.GITHUB_TOKEN }} # Uses GitHub token for authentication
+          ACTIONS_ID_TOKEN_REQUEST_URL: "https://token.actions.githubusercontent.com" # OIDC token request URL
 
       - name: Configure AWS Credentials via OIDC
-        uses: aws-actions/configure-aws-credentials@v2
+        uses: aws-actions/configure-aws-credentials@v2 # Configures AWS credentials using OpenID Connect (OIDC)
         with:
-          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
-          aws-region: us-east-1
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }} # AWS IAM role to assume
+          aws-region: us-east-1 # Sets AWS region to US East (N. Virginia)
 
       - name: Validate Packer Template
         run: |
           echo "Validating Packer Template..."
-          packer validate ami-template.pkr.hcl
+          packer validate ami-template.pkr.hcl # Validates the Packer template syntax
           echo "Validation Completed."
 
       - name: Build AMI
         run: |
           echo "Building AMI..."
-          packer build ami-template.pkr.hcl
+          packer build ami-template.pkr.hcl # Runs Packer to build an AMI
           echo "Build Completed."
 ```
 3. Commit and push
