@@ -1,6 +1,6 @@
 # DevOps-PodA-Jan2025-SHALI-Packer
 
-# Introduction
+# INTRODUCTION
 
 In modern cloud computing, creating and maintaining custom machine images is crucial for ensuring consistency, security, and efficiency in infrastructure deployment. Packer, a powerful open-source tool by HashiCorp, simplifies the process of automating AMI (Amazon Machine Image) creation. This documentation provides a step-by-step guide on setting up a GitHub repository, installing Packer, configuring authentication, defining Packer templates, implementing security hardening scripts, and automating builds with GitHub Actions. By following this guide, users can build and manage AMIs efficiently, ensuring compliance with industry security standards.
 
